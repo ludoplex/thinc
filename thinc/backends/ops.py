@@ -166,7 +166,7 @@ class Ops:
         """
         # This is a test implementation that only supports nW=1 and lengths=None
         assert nW == 1
-        assert lengths == None
+        assert lengths is None
         B = seq.shape[0]
         I = seq.shape[1]
         cols = self.alloc3f(B, (nW * 2 + 1), I)
@@ -185,7 +185,7 @@ class Ops:
         """
         # This is a test implementation that only supports nW=1 and lengths=None
         assert nW == 1
-        assert lengths == None
+        assert lengths is None
         nF = nW * 2 + 1
         B = dY.shape[0]
         I = dY.shape[1] // nF
@@ -214,9 +214,8 @@ class Ops:
             y = y.T
         if out is None:
             return self.xp.dot(x, y)
-        else:
-            self.xp.dot(x, y, out=out)
-            return out
+        self.xp.dot(x, y, out=out)
+        return out
 
     def tile(self, X: Floats2d, reps: int) -> Floats2d:
         return self.xp.tile(X, reps)
@@ -294,13 +293,12 @@ class Ops:
         xp = get_array_module(X[0])
         shape_if_empty = X[0].shape
         X = [x for x in X if x.size != 0]
-        if len(X) == 0:
+        if not X:
             return self.alloc(shape_if_empty, dtype=dtype or "f")
-        if int(pad) >= 1:
+        if pad >= 1:
             padded = []
             for x in X:
-                padded.append(xp.zeros((pad,) + x.shape[1:], dtype=x.dtype))
-                padded.append(x)
+                padded.extend((xp.zeros((pad,) + x.shape[1:], dtype=x.dtype), x))
             padded.append(xp.zeros((pad,) + x.shape[1:], dtype=x.dtype))
             X = padded
         result = xp.concatenate(X)
@@ -366,11 +364,11 @@ class Ops:
         # TODO: This should be generalized to handle different ranks
         if not seqs:
             raise ValueError("Cannot pad empty sequence")
-        if len(set(seq.ndim for seq in seqs)) != 1:
+        if len({seq.ndim for seq in seqs}) != 1:
             raise ValueError("Cannot pad sequences with different ndims")
-        if len(set(seq.dtype for seq in seqs)) != 1:
+        if len({seq.dtype for seq in seqs}) != 1:
             raise ValueError("Cannot pad sequences with different dtypes")
-        if len(set(seq.shape[1:] for seq in seqs)) != 1:
+        if len({seq.shape[1:] for seq in seqs}) != 1:
             raise ValueError("Cannot pad sequences that differ on other dimensions")
         # Find the maximum dimension along each axis. That's what we'll pad to.
         max_seq_len = max(len(seq) for seq in seqs)
@@ -388,9 +386,7 @@ class Ops:
         """The reverse/backward operation of the `pad` function: transform an
         array back into a list of arrays, each with their original length.
         """
-        output = []
-        for i, length in enumerate(lengths):
-            output.append(padded[i, :length])
+        output = [padded[i, :length] for i, length in enumerate(lengths)]
         return cast(List2d, output)
 
     def list2padded(self, seqs: List2d) -> Padded:
@@ -409,7 +405,7 @@ class Ops:
         lengths_indices.sort(reverse=True)
         indices_ = [i for length, i in lengths_indices]
         lengths_ = [length for length, i in lengths_indices]
-        nS = max([seq.shape[0] for seq in seqs])
+        nS = max(seq.shape[0] for seq in seqs)
         nB = len(seqs)
         nO = seqs[0].shape[1]
         # Reorder the sequences, by length. This looks the same in either
@@ -711,9 +707,7 @@ class Ops:
     ) -> ArrayXd:
         """Ensure a given array is of the correct type."""
         if isinstance(data, self.xp.ndarray):
-            if dtype is None:
-                return data
-            elif data.dtype == dtype:
+            if dtype is None or data.dtype == dtype:
                 return data
             else:
                 return self.xp.asarray(data, dtype=dtype)
@@ -750,28 +744,25 @@ class Ops:
     def backprop_sigmoid(
         self, dY: FloatsXdT, Y: FloatsXdT, *, inplace: bool = False
     ) -> FloatsXdT:
-        if inplace:
-            self.dsigmoid(Y, inplace=True)
-            Y *= dY
-            return Y
-        else:
+        if not inplace:
             return dY * self.dsigmoid(Y, inplace=inplace)
+        self.dsigmoid(Y, inplace=True)
+        Y *= dY
+        return Y
 
     def dsigmoid(self, Y: FloatsXdT, *, inplace: bool = False) -> FloatsXdT:
-        if inplace:
-            Y *= 1 - Y
-            return Y
-        else:
+        if not inplace:
             return Y * (1.0 - Y)
+        Y *= 1 - Y
+        return Y
 
     def dtanh(self, Y: FloatsT, *, inplace: bool = False) -> FloatsT:
-        if inplace:
-            Y **= 2
-            Y *= -1.0
-            Y += 1.0
-            return Y
-        else:
+        if not inplace:
             return 1 - Y**2
+        Y **= 2
+        Y *= -1.0
+        Y += 1.0
+        return Y
 
     def softmax(
         self,
@@ -864,9 +855,8 @@ class Ops:
     def relu(self, X: Floats2d, inplace: bool = False) -> Floats2d:
         if not inplace:
             return X * (X > 0)
-        else:
-            X *= X > 0
-            return X
+        X *= X > 0
+        return X
 
     def backprop_relu(
         self, dY: Floats2d, Y: Floats2d, inplace: bool = False
@@ -940,8 +930,7 @@ class Ops:
         if inplace:
             X *= self.sigmoid(X)
             return X
-        out = X * self.sigmoid(X)
-        return out
+        return X * self.sigmoid(X)
 
     def backprop_swish(
         self, dY: FloatsXdT, X: FloatsXdT, Y: FloatsXdT, inplace: bool = False
@@ -950,16 +939,14 @@ class Ops:
         if inplace:
             dY *= Y
             return dY
-        out = dY * Y
-        return out
+        return dY * Y
 
     # Following https://www.scitepress.org/Papers/2019/74696/74696.pdf
     def hard_swish(self, X: FloatsXdT, inplace: bool = False) -> FloatsXdT:
         if inplace:
             X *= self.hard_sigmoid(X)
             return X
-        out = X * self.hard_sigmoid(X)
-        return out
+        return X * self.hard_sigmoid(X)
 
     def backprop_hard_swish(
         self, dY: FloatsXdT, X: FloatsXdT, inplace: bool = False
@@ -997,11 +984,10 @@ class Ops:
         tmp = X / tmp
         tmp += 1
         tmp *= 0.5
-        if inplace:
-            X *= tmp
-            return X
-        else:
+        if not inplace:
             return X * tmp
+        X *= tmp
+        return X
 
     def backprop_dish(
         self, dY: FloatsXdT, X: FloatsXdT, inplace: bool = False
@@ -1013,11 +999,10 @@ class Ops:
         second /= x_sq_plus_one**1.5
         deriv -= second
         deriv += 0.5
-        if inplace:
-            dY *= deriv
-            return dY
-        else:
+        if not inplace:
             return dY * deriv
+        dY *= deriv
+        return dY
 
     # Code snippet taken from:
     # https://www.johndcook.com/blog/2009/01/19/stand-alone-error-function-erf/
@@ -1097,11 +1082,10 @@ class Ops:
     ) -> FloatsXdT:
         tmp = X * self.xp.tanh(self.xp.log(1.0 + self.xp.exp(X)))
         Y = self.xp.where(X >= threshold, X, tmp)
-        if inplace:
-            X[:] = Y
-            return X
-        else:
+        if not inplace:
             return Y
+        X[:] = Y
+        return X
 
     def backprop_mish(
         self,
@@ -1127,10 +1111,7 @@ class Ops:
         delta += 1.0
         dXsub = dYsub * ((xp.exp(Xsub) * omega) / (delta**2))
         # Gradient when above threshold will ignore softplus.
-        if inplace:
-            out = dY
-        else:
-            out = xp.copy(dY)
+        out = dY if inplace else xp.copy(dY)
         out[indices] = dXsub
         return out
 
@@ -1139,8 +1120,7 @@ class Ops:
     ) -> None:
         # Internals for optimizer
         decay = (1.0 + t) / (10.0 + t)
-        if decay > max_decay:
-            decay = max_decay
+        decay = min(decay, max_decay)
         ema -= (1 - decay) * (ema - weights)
 
     def adam(
@@ -1202,7 +1182,7 @@ class Ops:
         if lengths.size == 0:
             return self.alloc2f(0, X.shape[1]), lengths
         if not self.xp.all(lengths > 0):
-            raise ValueError(f"all sequence lengths must be > 0")
+            raise ValueError("all sequence lengths must be > 0")
         starts_ends = self.alloc1i(lengths.shape[0] + 1, zeros=False)
         starts_ends[0] = 0
         starts_ends[1:] = lengths.cumsum()
@@ -1215,7 +1195,7 @@ class Ops:
         if lengths.size == 0:
             return self.alloc2f(0, X.shape[1]), lengths
         if not self.xp.all(lengths > 0):
-            raise ValueError(f"all sequence lengths must be > 0")
+            raise ValueError("all sequence lengths must be > 0")
         lasts = lengths.cumsum() - 1
         if lasts[-1] + 1 != X.shape[0]:
             raise IndexError("lengths must sum up to the number of rows")
@@ -1255,7 +1235,7 @@ class Ops:
         self, d_firsts: Floats2d, starts_ends: Ints1d
     ) -> Floats2d:
         if starts_ends.size < 2:
-            raise ValueError(f"starts_ends should least have size 2")
+            raise ValueError("starts_ends should least have size 2")
         dX = self.alloc2f(
             int(starts_ends[-1]), d_firsts.shape[1], dtype=d_firsts.dtype, zeros=True
         )
@@ -1264,7 +1244,7 @@ class Ops:
 
     def backprop_reduce_last(self, d_lasts: Floats2d, lasts: Ints1d) -> Floats2d:
         if lasts.size < 1:
-            raise ValueError(f"lasts should least have size 2")
+            raise ValueError("lasts should least have size 2")
         dX = self.alloc2f(
             int(lasts[-1]) + 1, d_lasts.shape[1], dtype=d_lasts.dtype, zeros=True
         )
@@ -1491,7 +1471,7 @@ def backprop_lstm(dY: Floats2d, lengths: Ints1d, params: Floats1d, fwd_state: Tu
     for i in range(depth):
         all_layer_params.append([])
         n_inputs = nI if i == 0 else (nO * dirs)
-        for d in range(dirs):
+        for _ in range(dirs):
             layer_params, params_i = _split_weights(params, i, nO, n_inputs, params_i)
             layer_params = _transpose_weights(layer_params)
             all_layer_params[-1].append((layer_params, params_i))
@@ -1500,7 +1480,7 @@ def backprop_lstm(dY: Floats2d, lengths: Ints1d, params: Floats1d, fwd_state: Tu
     for i in range(depth):
         all_layer_grads.append([])
         n_inputs = nI if i == 0 else (nO * dirs)
-        for d in range(dirs):
+        for _ in range(dirs):
             layer_grads, params_i = _split_weights(d_params, i, nO, n_inputs, params_i)
             layer_grads = _transpose_weights(layer_grads)
             all_layer_grads[-1].append((layer_grads, params_i))
@@ -1560,8 +1540,10 @@ def backprop_lstm(dY: Floats2d, lengths: Ints1d, params: Floats1d, fwd_state: Tu
     assert dX.shape[1] == X.shape[1]
     grad_parts = []
     for layer_grads in all_layer_grads:
-        for dir_grads, _ in layer_grads:
-            grad_parts.append(_untranspose_unsplit_weights(dir_grads))
+        grad_parts.extend(
+            _untranspose_unsplit_weights(dir_grads)
+            for dir_grads, _ in layer_grads
+        )
     return dX, xp.concatenate(grad_parts)
 
 

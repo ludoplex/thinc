@@ -72,9 +72,8 @@ class CupyOps(Ops):
             y = y.T
         if out is None:
             return self.xp.dot(x, y)
-        else:
-            self.xp.dot(x, y, out=out)
-            return out
+        self.xp.dot(x, y, out=out)
+        return out
 
     def asarray(self, data, dtype=None):
         # We'll try to perform a zero-copy conversion if possible.
@@ -102,11 +101,11 @@ class CupyOps(Ops):
         # TODO: This should be generalized to handle different ranks
         if not seqs:
             raise ValueError("Cannot pad empty sequence")
-        if len(set(seq.ndim for seq in seqs)) != 1:
+        if len({seq.ndim for seq in seqs}) != 1:
             raise ValueError("Cannot pad sequences with different ndims")
-        if len(set(seq.dtype for seq in seqs)) != 1:
+        if len({seq.dtype for seq in seqs}) != 1:
             raise ValueError("Cannot pad sequences with different dtypes")
-        if len(set(seq.shape[1:] for seq in seqs)) != 1:
+        if len({seq.shape[1:] for seq in seqs}) != 1:
             raise ValueError("Cannot pad sequences that differ on other dimensions")
 
         # Our CUDA kernel can currently only handle C contiguous arrays.
@@ -135,9 +134,8 @@ class CupyOps(Ops):
     def relu(self, X, inplace=False):
         if not inplace:
             return X * (X > 0)
-        else:
-            X *= X > 0
-            return X
+        X *= X > 0
+        return X
 
     def backprop_relu(self, dY, Y, inplace=False):
         if not inplace:

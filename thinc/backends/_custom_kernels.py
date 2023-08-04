@@ -172,17 +172,11 @@ backprop_swish_kernel_float = LazyKernel("backprop_swish<float>")
 
 
 def _alloc(shape, dtype, *, zeros: bool = True):
-    if zeros:
-        return cupy.zeros(shape, dtype)
-    else:
-        return cupy.empty(shape, dtype)
+    return cupy.zeros(shape, dtype) if zeros else cupy.empty(shape, dtype)
 
 
 def _alloc_like(array, zeros: bool = True):
-    if zeros:
-        return cupy.zeros_like(array)
-    else:
-        return cupy.empty_like(array)
+    return cupy.zeros_like(array) if zeros else cupy.empty_like(array)
 
 
 def pad(seqs, round_to=1, *, threads_per_block=128, num_blocks=128):

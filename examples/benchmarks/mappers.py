@@ -12,11 +12,9 @@ N_tokens = 50000
 N_batch = 500
 N_columns = 4
 N_dim = 300
-mapper = {}
 numbers = list(range(N_symbols))
 random.shuffle(numbers)
-for v, k in enumerate(numbers):
-    mapper[k] = v
+mapper = {k: v for v, k in enumerate(numbers)}
 
 
 class time_context:
@@ -35,11 +33,11 @@ def speed_test_no_column():
     premap = premap_ids(mapper)
     keys = np.random.randint(0, N_symbols, N_tokens)
     with time_context() as elapsed:
-        for i in range(100):
+        for _ in range(100):
             remap(keys, False)
     remaptime = elapsed.elapsed
     with time_context() as elapsed:
-        for i in range(100):
+        for _ in range(100):
             premap(keys, False)
     premaptime = elapsed.elapsed
     print("remap", remaptime)
@@ -52,11 +50,11 @@ def speed_test_column():
     premap = premap_ids(mapper, column=3)
     keys = np.random.randint(0, N_symbols, (N_tokens, N_columns))
     with time_context() as elapsed:
-        for i in range(100):
+        for _ in range(100):
             remap(keys, False)
     remaptime = elapsed.elapsed
     with time_context() as elapsed:
-        for i in range(100):
+        for _ in range(100):
             premap(keys, False)
     premaptime = elapsed.elapsed
     print("remap", remaptime)
@@ -69,11 +67,11 @@ def speed_test_cupy():
     premap = premap_ids(mapper)
     keys = cp.random.randint(0, N_symbols, N_tokens)
     with time_context() as elapsed:
-        for i in range(100):
+        for _ in range(100):
             remap(keys, False)
     remaptime = elapsed.elapsed
     with time_context() as elapsed:
-        for i in range(100):
+        for _ in range(100):
             premap(keys, False)
     premaptime = elapsed.elapsed
     print("remap", remaptime)
@@ -88,11 +86,11 @@ def speed_test_with_embed():
     premap.initialize()
     keys = np.random.randint(0, N_symbols, N_tokens)
     with time_context() as elapsed:
-        for i in range(100):
+        for _ in range(100):
             remap(keys, False)
     remaptime = elapsed.elapsed
     with time_context() as elapsed:
-        for i in range(100):
+        for _ in range(100):
             premap(keys, False)
     premaptime = elapsed.elapsed
     print("remap", remaptime)
@@ -107,11 +105,11 @@ def speed_test_cupy_with_embed():
     premap.initialize()
     keys = cp.random.randint(0, N_symbols, N_tokens)
     with time_context() as elapsed:
-        for i in range(100):
+        for _ in range(100):
             remap(keys, False)
     remaptime = elapsed.elapsed
     with time_context() as elapsed:
-        for i in range(100):
+        for _ in range(100):
             premap(keys, False)
     premaptime = elapsed.elapsed
     print("remap", remaptime)
@@ -124,7 +122,7 @@ def speed_test_hashembed():
     embed.initialize()
     keys = np.random.randint(0, N_symbols, N_tokens)
     with time_context() as elapsed:
-        for i in range(100):
+        for _ in range(100):
             embed(keys, False)
     print(elapsed.elapsed)
 

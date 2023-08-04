@@ -8,11 +8,12 @@ from thinc.layers.resizable import resize_model, resize_linear_weighted
 def model():
     output_layer = Linear(nO=None, nI=None)
     fill_defaults = {"b": 0, "W": 0}
-    model = resizable(
+    return resizable(
         output_layer,
-        resize_layer=partial(resize_linear_weighted, fill_defaults=fill_defaults),
+        resize_layer=partial(
+            resize_linear_weighted, fill_defaults=fill_defaults
+        ),
     )
-    return model
 
 
 def test_resizable_linear_default_name(model):
